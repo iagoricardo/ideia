@@ -153,8 +153,17 @@ E o arquivo deve começar com:
 Nada antes disso.`;
 
 export async function bringToLife(prompt: string, fileBase64?: string, mimeType?: string): Promise<string> {
-  // Initialize the client inside the function to ensure process.env is available
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  // Tenta obter a chave de várias fontes para flexibilidade
+  // 1. process.env (Node/Webpack/Vercel)
+  // 2. import.meta.env (Vite padrão)
+  const apiKey = process.env.API_KEY || (import.meta as any).env?.VITE_API_KEY;
+
+  if (!apiKey) {
+    console.error("API Key não encontrada. Configure API_KEY no .env ou variáveis de ambiente.");
+    throw new Error("Chave de API não configurada.");
+  }
+
+  const ai = new GoogleGenAI({ apiKey: apiKey });
 
   const parts: any[] = [];
   

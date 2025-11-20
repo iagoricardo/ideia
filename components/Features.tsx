@@ -90,16 +90,18 @@ export function FeaturesSection() {
   );
 }
 
-const Feature = ({
-  title,
-  description,
-  icon,
-  index,
-}: {
+interface FeatureProps {
   title: string;
   description: string;
   icon: React.ReactNode;
   index: number;
+}
+
+const Feature: React.FC<FeatureProps> = ({
+  title,
+  description,
+  icon,
+  index,
 }) => {
   return (
     <div
