@@ -1,5 +1,5 @@
 {
-  "name": "dê-vida-a-qualquer-ideia",
+  "name": ""dê-vida-a-qualquer-ideia"",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -17,7 +17,8 @@
     "tailwind-merge": "2.3.0",
     "framer-motion": "^11.2.0",
     "simplex-noise": "4.0.1",
-    "@splinetool/react-spline": "4.0.0"
+    "@splinetool/react-spline": "4.0.0",
+    "recharts": "2.12.3"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

@@ -175,7 +175,7 @@ export const Hero: React.FC = () => {
         </motion.div>
 
         <p className="text-base sm:text-xl text-zinc-600 max-w-2xl mx-auto leading-relaxed font-light">
-          O Gemini vê código em tudo. Arraste uma anotação, um PDF, um diagrama ou um rabisco e veja-o se transformar em uma experiência interativa instantaneamente.
+          O Ainlo vê código em tudo. Arraste uma anotação, um PDF, um diagrama ou um rabisco e veja-o se transformar em uma experiência interativa instantaneamente.
         </p>
       </div>
     </>

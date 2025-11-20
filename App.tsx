@@ -9,6 +9,7 @@ import { InputArea } from './components/InputArea';
 import { LivePreview } from './components/LivePreview';
 import { CreationHistory, Creation } from './components/CreationHistory';
 import { FeaturesSection } from './components/Features';
+import { PricingWithChart } from './components/Pricing';
 import { bringToLife } from './services/gemini';
 import { ArrowUpTrayIcon } from '@heroicons/react/24/solid';
 import { Vortex } from './components/Vortex';
@@ -242,16 +243,21 @@ const App: React.FC = () => {
 
             </div>
             
-            {/* 3. History & Features Section - Stays at bottom */}
+            {/* 3. History, Features & Pricing Section - Stays at bottom */}
             <div className="flex-shrink-0 pb-6 w-full mt-auto flex flex-col items-center gap-8">
                 {/* History List */}
                 <div className="w-full px-2 md:px-0">
                     <CreationHistory history={history} onSelect={handleSelectCreation} onDelete={handleDeleteCreation} />
                 </div>
                 
-                {/* New Features Grid */}
+                {/* Features Grid */}
                 <div className="w-full">
                     <FeaturesSection />
+                </div>
+
+                {/* Pricing Section */}
+                <div className="w-full">
+                    <PricingWithChart />
                 </div>
 
                 {/* Footer Branding */}
