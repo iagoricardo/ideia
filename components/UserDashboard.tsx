@@ -1,0 +1,154 @@
+
+import React from 'react';
+import { Creation } from './CreationHistory';
+import { ClockIcon, TrashIcon, ArrowRightIcon, StarIcon, SparklesIcon, CloudIcon, PlusIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline';
+import { RocketLaunchIcon } from '@heroicons/react/24/solid';
+
+interface UserDashboardProps {
+  user: { name: string; email: string; plan: 'free' | 'pro' };
+  history: Creation[];
+  onSelect: (creation: Creation) => void;
+  onDelete: (id: string) => void;
+  onNew: () => void;
+  onUpgrade: () => void;
+}
+
+export const UserDashboard: React.FC<UserDashboardProps> = ({ user, history, onSelect, onDelete, onNew, onUpgrade }) => {
+  const isPro = user.plan === 'pro';
+  const limit = isPro ? Infinity : 3;
+  const used = history.length;
+  const percentage = Math.min(100, (used / limit) * 100);
+
+  return (
+    <div className="w-full max-w-7xl mx-auto px-4 py-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      
+      {/* Header Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Profile Card */}
+        <div className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm flex items-center gap-4">
+            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-100 to-purple-100 border border-blue-200 flex items-center justify-center text-2xl font-bold text-blue-600">
+                {user.name.charAt(0).toUpperCase()}
+            </div>
+            <div>
+                <h2 className="text-xl font-bold text-zinc-900">{user.name}</h2>
+                <div className="flex items-center gap-2 text-sm text-zinc-500">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${isPro ? 'bg-gradient-to-r from-amber-100 to-orange-100 text-amber-800 border border-amber-200' : 'bg-zinc-100 text-zinc-600 border border-zinc-200'}`}>
+                        {isPro ? <StarIcon className="w-3 h-3 mr-1 fill-amber-500 text-amber-500" /> : null}
+                        {isPro ? 'PLANO PRO' : 'PLANO GRATUITO'}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        {/* Usage Stats */}
+        <div className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm flex flex-col justify-center">
+            <div className="flex justify-between items-end mb-2">
+                <span className="text-sm font-medium text-zinc-500">Armazenamento de Projetos</span>
+                <span className="text-2xl font-bold text-zinc-900">{used} <span className="text-sm text-zinc-400 font-normal">/ {isPro ? '∞' : limit}</span></span>
+            </div>
+            <div className="w-full bg-zinc-100 rounded-full h-2.5 overflow-hidden">
+                <div 
+                    className={`h-2.5 rounded-full transition-all duration-1000 ${percentage >= 100 ? 'bg-red-500' : 'bg-blue-500'}`} 
+                    style={{ width: `${isPro ? 5 : percentage}%` }}
+                ></div>
+            </div>
+            {!isPro && percentage >= 100 && (
+                <p className="text-xs text-red-500 mt-2 font-medium flex items-center">
+                    <CloudIcon className="w-3 h-3 mr-1" />
+                    Limite atingido. Apague itens ou faça upgrade.
+                </p>
+            )}
+        </div>
+
+        {/* Action Card */}
+        <div className="bg-gradient-to-br from-zinc-900 to-zinc-800 p-6 rounded-2xl border border-zinc-700 shadow-lg text-white flex flex-col justify-between relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -mr-10 -mt-10 transition-transform group-hover:scale-150 duration-700"></div>
+            <div>
+                <h3 className="font-bold text-lg mb-1">Criar Novo Projeto</h3>
+                <p className="text-zinc-400 text-sm">Dê vida a uma nova ideia agora.</p>
+            </div>
+            <button 
+                onClick={onNew}
+                className="mt-4 w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white py-2 rounded-lg transition-all flex items-center justify-center gap-2 font-medium backdrop-blur-sm"
+            >
+                <PlusIcon className="w-4 h-4" />
+                Nova Geração
+            </button>
+        </div>
+      </div>
+
+      {/* Projects Grid */}
+      <div>
+        <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-zinc-900">Meus Projetos</h2>
+            {!isPro && (
+                <button onClick={onUpgrade} className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1 hover:underline">
+                    <SparklesIcon className="w-4 h-4" />
+                    Fazer Upgrade para Ilimitado
+                </button>
+            )}
+        </div>
+
+        {history.length === 0 ? (
+            <div className="text-center py-20 bg-white/50 rounded-2xl border border-dashed border-zinc-300">
+                <div className="w-16 h-16 bg-zinc-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <ArrowUpTrayIcon className="w-8 h-8 text-zinc-400" />
+                </div>
+                <h3 className="text-lg font-medium text-zinc-900">Nenhum projeto ainda</h3>
+                <p className="text-zinc-500 max-w-xs mx-auto mt-2">Faça o upload de um arquivo para começar a criar seu portfólio.</p>
+                <button onClick={onNew} className="mt-6 text-blue-600 font-medium hover:underline">Começar agora</button>
+            </div>
+        ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {history.map((item) => (
+                    <div 
+                        key={item.id}
+                        onClick={() => onSelect(item)}
+                        className="group bg-white border border-zinc-200 hover:border-blue-300 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer flex flex-col h-64 relative"
+                    >
+                         {/* Preview Area */}
+                         <div className="h-32 bg-zinc-100 relative overflow-hidden flex items-center justify-center p-4 border-b border-zinc-100">
+                            {item.originalImage ? (
+                                <img 
+                                    src={item.originalImage} 
+                                    className="max-w-full max-h-full object-contain shadow-sm" 
+                                    alt="Preview" 
+                                />
+                            ) : (
+                                <RocketLaunchIcon className="w-12 h-12 text-zinc-300" />
+                            )}
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors" />
+                         </div>
+
+                         {/* Content Area */}
+                         <div className="p-4 flex-1 flex flex-col">
+                            <h3 className="font-bold text-zinc-900 truncate mb-1">{item.name}</h3>
+                            <div className="flex items-center text-xs text-zinc-500 mb-4">
+                                <ClockIcon className="w-3.5 h-3.5 mr-1" />
+                                {item.timestamp.toLocaleDateString()} às {item.timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                            </div>
+
+                            <div className="mt-auto flex justify-between items-center pt-3 border-t border-zinc-50">
+                                <span className="text-xs font-medium text-blue-600 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    Abrir <ArrowRightIcon className="w-3 h-3" />
+                                </span>
+                                <button 
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onDelete(item.id);
+                                    }}
+                                    className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                                    title="Apagar projeto"
+                                >
+                                    <TrashIcon className="w-4 h-4" />
+                                </button>
+                            </div>
+                         </div>
+                    </div>
+                ))}
+            </div>
+        )}
+      </div>
+    </div>
+  );
+};
