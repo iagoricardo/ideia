@@ -11,6 +11,7 @@ import { CreationHistory, Creation } from './components/CreationHistory';
 import { FeaturesSection } from './components/Features';
 import { PricingWithChart } from './components/Pricing';
 import { bringToLife } from './services/gemini';
+import { supabase } from './services/supabase';
 import { ArrowUpTrayIcon, UserCircleIcon, ArrowLeftOnRectangleIcon, Squares2X2Icon } from '@heroicons/react/24/solid';
 import { Vortex } from './components/Vortex';
 import { AuthModal } from './components/AuthModal';
@@ -28,8 +29,7 @@ const App: React.FC = () => {
   const [activeCreation, setActiveCreation] = useState<Creation | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [history, setHistory] = useState<Creation[]>([]);
-  const [isHistoryLoaded, setIsHistoryLoaded] = useState(false);
-  const importInputRef = useRef<HTMLInputElement>(null);
+  const [importInputRef] = [useRef<HTMLInputElement>(null)];
 
   // Auth States
   const [user, setUser] = useState<User | null>(null);
@@ -37,136 +37,125 @@ const App: React.FC = () => {
   const [view, setView] = useState<'home' | 'dashboard'>('home');
   const [pendingGeneration, setPendingGeneration] = useState<{prompt: string, file?: File} | null>(null);
 
-  // Check Auth on Mount
+  // Check Auth on Mount with Supabase
   useEffect(() => {
-    const savedUser = localStorage.getItem('ainlo_user');
-    if (savedUser) {
-        setUser(JSON.parse(savedUser));
-        setView('dashboard'); // Direct to dashboard if logged in
-    }
+    const checkSession = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+            setUser({
+                id: session.user.id,
+                email: session.user.email!,
+                name: session.user.user_metadata.name || session.user.email!.split('@')[0],
+                plan: (session.user.user_metadata.plan as 'free' | 'pro') || 'free'
+            });
+            setView('dashboard');
+        }
+    };
+    
+    checkSession();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (session?.user) {
+             setUser({
+                id: session.user.id,
+                email: session.user.email!,
+                name: session.user.user_metadata.name || session.user.email!.split('@')[0],
+                plan: (session.user.user_metadata.plan as 'free' | 'pro') || 'free'
+            });
+        } else {
+            setUser(null);
+            setView('home');
+        }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  // Load History dependent on User
+  // Load History from Supabase when user changes
   useEffect(() => {
     const loadUserHistory = async () => {
-      // If no user, we might show examples or temp history, but for this SaaS logic
-      // we want history to be tied to the user.
-      // Let's use a generic key for guest/logged-out for examples, and specific key for users.
-      
-      const storageKey = user ? `gemini_app_history_${user.id}` : 'gemini_app_history_guest';
-      const saved = localStorage.getItem(storageKey);
-      
-      let loadedHistory: Creation[] = [];
-      let hasSavedData = false;
+      if (!user) {
+        setHistory([]);
+        return;
+      }
 
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          loadedHistory = parsed.map((item: any) => ({
-              ...item,
-              timestamp: new Date(item.timestamp)
+      const { data, error } = await supabase
+        .from('creations')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+          console.error('Error loading history:', error);
+          return;
+      }
+
+      if (data) {
+          const mappedHistory: Creation[] = data.map((item: any) => ({
+              id: item.id,
+              name: item.name,
+              html: item.html,
+              originalImage: item.original_image,
+              timestamp: new Date(item.created_at)
           }));
-          hasSavedData = true;
-        } catch (e) {
-          console.error("Failed to load history", e);
-        }
+          setHistory(mappedHistory);
       }
-
-      if (hasSavedData) {
-        setHistory(loadedHistory);
-      } else if (!user) {
-         // Load examples ONLY for guest/landing page to look nice
-         try {
-           const exampleUrls = [
-               'https://storage.googleapis.com/sideprojects-asronline/bringanythingtolife/vibecode-blog.json',
-               'https://storage.googleapis.com/sideprojects-asronline/bringanythingtolife/cassette.json',
-               'https://storage.googleapis.com/sideprojects-asronline/bringanythingtolife/chess.json'
-           ];
-
-           const examples = await Promise.all(exampleUrls.map(async (url) => {
-               const res = await fetch(url);
-               if (!res.ok) return null;
-               const data = await res.json();
-               return {
-                   ...data,
-                   timestamp: new Date(data.timestamp || Date.now()),
-                   id: data.id || crypto.randomUUID()
-               };
-           }));
-           
-           const validExamples = examples.filter((e): e is Creation => e !== null);
-           if (validExamples.length > 0) {
-               setHistory(validExamples);
-           }
-        } catch (e) {
-            console.error("Failed to load examples", e);
-        }
-      } else {
-          setHistory([]); // New user has empty history
-      }
-      
-      setIsHistoryLoaded(true);
     };
 
     loadUserHistory();
   }, [user]);
 
-  // Save history when it changes
-  useEffect(() => {
-    if (!isHistoryLoaded) return;
-    const storageKey = user ? `gemini_app_history_${user.id}` : 'gemini_app_history_guest';
-
-    try {
-        localStorage.setItem(storageKey, JSON.stringify(history));
-    } catch (e) {
-        console.warn("Local storage full or error saving history", e);
-    }
-  }, [history, isHistoryLoaded, user]);
-
 
   // --- AUTH ACTIONS ---
 
-  const handleLogin = (email: string, name: string) => {
-      // Simulate Backend Login/Signup
-      const mockId = email.replace(/[^a-zA-Z0-9]/g, '');
-      const newUser: User = {
-          id: mockId,
-          email,
-          name,
-          plan: 'free' // Default to free
-      };
+  const handleAuth = async (email: string, password: string, name: string, isLogin: boolean) => {
+      if (isLogin) {
+          const { error } = await supabase.auth.signInWithPassword({
+              email,
+              password
+          });
+          if (error) throw error;
+      } else {
+          const { error } = await supabase.auth.signUp({
+              email,
+              password,
+              options: {
+                  data: { name, plan: 'free' }
+              }
+          });
+          if (error) throw error;
+      }
       
-      // Save Session
-      localStorage.setItem('ainlo_user', JSON.stringify(newUser));
-      setUser(newUser);
       setIsAuthOpen(false);
 
       // Resume pending generation if exists
       if (pendingGeneration) {
-          // We delay slightly to allow state to settle
           setTimeout(() => {
               handleGenerateAuthenticated(pendingGeneration.prompt, pendingGeneration.file);
               setPendingGeneration(null);
-          }, 100);
+          }, 500); // Wait for state update
       } else {
           setView('dashboard');
       }
   };
 
-  const handleLogout = () => {
-      localStorage.removeItem('ainlo_user');
-      setUser(null);
-      setView('home');
+  const handleLogout = async () => {
+      await supabase.auth.signOut();
       setActiveCreation(null);
   };
 
-  const handleUpgrade = () => {
+  const handleUpgrade = async () => {
       if (!user) return;
-      // Mock Upgrade
-      const upgradedUser: User = { ...user, plan: 'pro' };
-      setUser(upgradedUser);
-      localStorage.setItem('ainlo_user', JSON.stringify(upgradedUser));
-      alert("Parabéns! Você agora é PRO e tem gerações ilimitadas.");
+      // Mock Upgrade locally for now, in real app this would be a webhook from Stripe updating the DB
+      const { error } = await supabase.auth.updateUser({
+          data: { plan: 'pro' }
+      });
+      
+      if (!error) {
+          setUser({ ...user, plan: 'pro' });
+          alert("Parabéns! Você agora é PRO e tem gerações ilimitadas.");
+      }
   };
 
   // --- GENERATION LOGIC ---
@@ -224,16 +213,36 @@ const App: React.FC = () => {
 
       const html = await bringToLife(promptText, imageBase64, mimeType);
       
-      if (html) {
-        const newCreation: Creation = {
-          id: crypto.randomUUID(),
-          name: file ? file.name : 'Nova Criação',
-          html: html,
-          originalImage: imageBase64 && mimeType ? `data:${mimeType};base64,${imageBase64}` : undefined,
-          timestamp: new Date(),
-        };
-        setActiveCreation(newCreation);
-        setHistory(prev => [newCreation, ...prev]);
+      if (html && user) {
+        const originalImageUri = imageBase64 && mimeType ? `data:${mimeType};base64,${imageBase64}` : undefined;
+        
+        // Save to Supabase
+        const { data, error } = await supabase
+            .from('creations')
+            .insert([
+                {
+                    user_id: user.id,
+                    name: file ? file.name : 'Nova Criação',
+                    html: html,
+                    original_image: originalImageUri
+                }
+            ])
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        if (data) {
+            const newCreation: Creation = {
+                id: data.id,
+                name: data.name,
+                html: data.html,
+                originalImage: data.original_image,
+                timestamp: new Date(data.created_at),
+            };
+            setActiveCreation(newCreation);
+            setHistory(prev => [newCreation, ...prev]);
+        }
       }
 
     } catch (error) {
@@ -253,10 +262,19 @@ const App: React.FC = () => {
     setActiveCreation(creation);
   };
 
-  const handleDeleteCreation = (id: string) => {
-    setHistory(prev => prev.filter(item => item.id !== id));
-    if (activeCreation?.id === id) {
-        setActiveCreation(null);
+  const handleDeleteCreation = async (id: string) => {
+    const { error } = await supabase
+        .from('creations')
+        .delete()
+        .eq('id', id);
+
+    if (!error) {
+        setHistory(prev => prev.filter(item => item.id !== id));
+        if (activeCreation?.id === id) {
+            setActiveCreation(null);
+        }
+    } else {
+        alert("Erro ao deletar projeto.");
     }
   };
 
@@ -273,12 +291,14 @@ const App: React.FC = () => {
         try {
             const json = event.target?.result as string;
             const parsed = JSON.parse(json);
+            // Import local view only, don't save to DB unless user wants (complex logic omitted for brevity)
             if (parsed.html && parsed.name) {
                 const importedCreation: Creation = {
                     ...parsed,
                     timestamp: new Date(parsed.timestamp || Date.now()),
                     id: parsed.id || crypto.randomUUID()
                 };
+                // We add to history state locally for viewing
                 setHistory(prev => [importedCreation, ...prev]);
                 setActiveCreation(importedCreation);
             } else {
@@ -419,7 +439,7 @@ const App: React.FC = () => {
                 setIsAuthOpen(false);
                 setPendingGeneration(null);
             }}
-            onLogin={handleLogin}
+            onAuth={handleAuth}
             pendingAction={pendingGeneration ? 'upload' : undefined}
         />
 

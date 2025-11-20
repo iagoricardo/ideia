@@ -5,31 +5,48 @@ import { XMarkIcon, EnvelopeIcon, LockClosedIcon, UserIcon } from '@heroicons/re
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onLogin: (email: string, name: string) => void;
+  onAuth: (email: string, password: string, name: string, isLogin: boolean) => Promise<void>;
   pendingAction?: string;
 }
 
-export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLogin, pendingAction }) => {
+export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuth, pendingAction }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     setLoading(true);
     
-    // Simulação de delay de rede
-    setTimeout(() => {
-        // Em um app real, aqui validaria com o backend
+    try {
         const finalName = name || email.split('@')[0];
-        onLogin(email, finalName);
+        await onAuth(email, password, finalName, isLogin);
+        // Se sucesso, o App fechará o modal via props
+    } catch (err: any) {
+        console.error("Erro de autenticação:", err);
+        let msg = err.message || "Ocorreu um erro. Verifique suas credenciais.";
+        
+        // Tradução de erros comuns do Supabase para orientar o usuário/desenvolvedor
+        if (msg.includes("Email logins are disabled")) {
+            msg = "O login por Email está desativado no Supabase. Habilite em Authentication > Providers > Email.";
+        } else if (msg.includes("Invalid login credentials")) {
+            msg = "Email ou senha incorretos.";
+        } else if (msg.includes("User already registered")) {
+            msg = "Este email já está cadastrado.";
+        } else if (msg.includes("Password should be")) {
+            msg = "A senha é muito fraca. Use uma senha mais forte.";
+        }
+        
+        setError(msg);
+    } finally {
         setLoading(false);
-        onClose();
-    }, 1500);
+    }
   };
 
   return (
@@ -53,6 +70,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLogin, 
                         : "Acesse seu painel e gerencie seus projetos."}
                 </p>
             </div>
+
+            {error && (
+                <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">
+                    {error}
+                </div>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
                 {!isLogin && (
@@ -119,7 +142,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLogin, 
                 <p className="text-sm text-zinc-500">
                     {isLogin ? 'Não tem uma conta?' : 'Já tem uma conta?'}
                     <button 
-                        onClick={() => setIsLogin(!isLogin)}
+                        onClick={() => {
+                            setIsLogin(!isLogin);
+                            setError(null);
+                        }}
                         className="ml-1 text-blue-600 hover:text-blue-800 font-semibold hover:underline"
                     >
                         {isLogin ? 'Cadastre-se' : 'Faça Login'}
