@@ -6,7 +6,7 @@
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 
 // Using gemini-2.5-pro for complex coding tasks.
-const GEMINI_MODEL = 'gemini-3-pro-preview';
+const GEMINI_MODEL = 'gemini-2.5-pro';
 
 const SYSTEM_INSTRUCTION = `Você é um Engenheiro de IA Nível Sênior, especialista em interpretação avançada de artefatos, design de produto, engenharia de software full-stack e construção de experiências digitais interativas.
 
