@@ -12,10 +12,11 @@ import { FeaturesSection } from './components/Features';
 import { PricingWithChart } from './components/Pricing';
 import { bringToLife } from './services/gemini';
 import { supabase } from './services/supabase';
-import { ArrowUpTrayIcon, UserCircleIcon, ArrowLeftOnRectangleIcon, Squares2X2Icon } from '@heroicons/react/24/solid';
+import { ArrowUpTrayIcon, UserCircleIcon, ArrowLeftOnRectangleIcon, Squares2X2Icon, ShieldCheckIcon } from '@heroicons/react/24/solid';
 import { Vortex } from './components/Vortex';
 import { AuthModal } from './components/AuthModal';
 import { UserDashboard } from './components/UserDashboard';
+import { AdminDashboard } from './components/AdminDashboard';
 
 // Define User Interface
 interface User {
@@ -24,6 +25,9 @@ interface User {
   email: string;
   plan: 'free' | 'pro';
 }
+
+// Email do Admin (Hardcoded para segurança no frontend, idealmente usar Roles no DB)
+const ADMIN_EMAIL = 'admin@ainlo.com';
 
 const App: React.FC = () => {
   const [activeCreation, setActiveCreation] = useState<Creation | null>(null);
@@ -34,38 +38,110 @@ const App: React.FC = () => {
   // Auth States
   const [user, setUser] = useState<User | null>(null);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
-  const [view, setView] = useState<'home' | 'dashboard'>('home');
+  const [view, setView] = useState<'home' | 'dashboard' | 'admin'>('home');
   const [pendingGeneration, setPendingGeneration] = useState<{prompt: string, file?: File} | null>(null);
+
+  // Function to sync/heal profile in database
+  // Using upsert to ensure data consistency
+  const syncUserProfile = async (sessionUser: any) => {
+      if (!sessionUser) return;
+
+      try {
+          const isAdmin = sessionUser.email === ADMIN_EMAIL;
+          
+          // 1. Prepare minimal safe profile data (name/email)
+          // This usually succeeds even with strict RLS for the user's own row
+          const baseProfile = {
+              id: sessionUser.id,
+              email: sessionUser.email,
+              name: sessionUser.user_metadata.name || sessionUser.email?.split('@')[0],
+          };
+
+          // 2. Attempt basic upsert first
+          const { error } = await supabase.from('profiles').upsert(baseProfile, { 
+              onConflict: 'id',
+              ignoreDuplicates: false 
+          });
+
+          if (error) {
+               console.warn("Profile basic sync warning:", error.message);
+               // Don't throw, just log. The user can still use the app.
+          }
+
+          // 3. If Admin, try to enforce role separately
+          if (isAdmin) {
+             const { error: roleError } = await supabase.from('profiles').update({ role: 'admin' }).eq('id', sessionUser.id);
+             if (roleError) console.warn("Admin role sync warning:", roleError.message);
+          }
+
+      } catch (err) {
+          console.error("Profile sync unexpected error:", err);
+      }
+  };
 
   // Check Auth on Mount with Supabase
   useEffect(() => {
     const checkSession = async () => {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-            setUser({
-                id: session.user.id,
-                email: session.user.email!,
-                name: session.user.user_metadata.name || session.user.email!.split('@')[0],
-                plan: (session.user.user_metadata.plan as 'free' | 'pro') || 'free'
-            });
-            setView('dashboard');
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+                // Optimistically set user immediately to unblock UI
+                setUser({
+                    id: session.user.id,
+                    email: session.user.email!,
+                    name: session.user.user_metadata.name || session.user.email!.split('@')[0],
+                    plan: (session.user.user_metadata.plan as 'free' | 'pro') || 'free'
+                });
+
+                // Background fetch for Plan details
+                supabase
+                    .from('profiles')
+                    .select('plan, role')
+                    .eq('id', session.user.id)
+                    .single()
+                    .then(({ data: profile }) => {
+                        if (profile) {
+                            setUser(prev => prev ? {
+                                ...prev,
+                                plan: (profile.plan as 'free' | 'pro') || prev.plan
+                            } : null);
+                        }
+                    });
+                
+                // Attempt to sync profile background
+                syncUserProfile(session.user);
+            }
+        } catch (e) {
+            console.error("Session check error", e);
         }
     };
     
     checkSession();
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-        if (session?.user) {
-             setUser({
-                id: session.user.id,
-                email: session.user.email!,
-                name: session.user.user_metadata.name || session.user.email!.split('@')[0],
-                plan: (session.user.user_metadata.plan as 'free' | 'pro') || 'free'
-            });
-        } else {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'SIGNED_OUT' || !session) {
+            // Handle Logout / Session Expiry
             setUser(null);
+            setHistory([]);
+            setActiveCreation(null);
             setView('home');
+        } else if (event === 'SIGNED_IN' || session?.user) {
+            // Handle Login / Token Refresh
+            // Note: We rely on handleAuth for the primary login transition to avoid flickering
+            // This listener ensures we stay in sync if the session updates externally
+            
+             if (!user) {
+                 setUser({
+                    id: session.user.id,
+                    email: session.user.email!,
+                    name: session.user.user_metadata.name || session.user.email!.split('@')[0],
+                    plan: 'free'
+                });
+             }
+            
+            // Sync on login event as well
+            syncUserProfile(session.user);
         }
     });
 
@@ -104,56 +180,98 @@ const App: React.FC = () => {
     };
 
     loadUserHistory();
-  }, [user]);
+  }, [user?.id]); // Depend only on ID to avoid loops
 
 
   // --- AUTH ACTIONS ---
 
   const handleAuth = async (email: string, password: string, name: string, isLogin: boolean) => {
-      if (isLogin) {
-          const { error } = await supabase.auth.signInWithPassword({
-              email,
-              password
-          });
-          if (error) throw error;
-      } else {
-          const { error } = await supabase.auth.signUp({
-              email,
-              password,
-              options: {
-                  data: { name, plan: 'free' }
-              }
-          });
-          if (error) throw error;
-      }
-      
-      setIsAuthOpen(false);
+      try {
+          let sessionUser = null;
 
-      // Resume pending generation if exists
-      if (pendingGeneration) {
-          setTimeout(() => {
-              handleGenerateAuthenticated(pendingGeneration.prompt, pendingGeneration.file);
-              setPendingGeneration(null);
-          }, 500); // Wait for state update
-      } else {
-          setView('dashboard');
+          if (isLogin) {
+              const { data, error } = await supabase.auth.signInWithPassword({
+                  email,
+                  password
+              });
+              if (error) throw error;
+              sessionUser = data.user;
+              
+          } else {
+              const { data, error } = await supabase.auth.signUp({
+                  email,
+                  password,
+                  options: {
+                      data: { name, plan: 'free' }
+                  }
+              });
+              if (error) throw error;
+              sessionUser = data.user;
+              
+              if (sessionUser && !data.session) {
+                 throw new Error("Email confirmation required");
+              }
+          }
+          
+          // CRITICAL: Optimistically set user state immediately
+          // This prevents the "stuck" feeling where view changes but user is null
+          if (sessionUser) {
+              const userName = name || sessionUser.user_metadata.name || sessionUser.email!.split('@')[0];
+              
+              // 1. Set React State
+              setUser({
+                  id: sessionUser.id,
+                  email: sessionUser.email!,
+                  name: userName,
+                  plan: 'free' // Optimistic default
+              });
+
+              // 2. Trigger Background Sync (Non-blocking)
+              syncUserProfile(sessionUser);
+              
+              // 3. Close Modal
+              setIsAuthOpen(false);
+
+              // 4. Navigate
+              if (pendingGeneration) {
+                  setTimeout(() => {
+                      handleGenerateAuthenticated(pendingGeneration.prompt, pendingGeneration.file);
+                      setPendingGeneration(null);
+                  }, 500);
+              } else {
+                  setView('dashboard');
+              }
+          }
+      } catch (err) {
+          throw err; // Re-throw to be caught by AuthModal
       }
   };
 
   const handleLogout = async () => {
-      await supabase.auth.signOut();
+      // 1. Reset Local State Immediately for snappy UI
+      setUser(null);
       setActiveCreation(null);
+      setHistory([]);
+      setView('home');
+
+      // 2. Perform API Logout
+      try {
+          await supabase.auth.signOut();
+      } catch (error) {
+          console.error("Error signing out:", error);
+      }
   };
 
   const handleUpgrade = async () => {
       if (!user) return;
-      // Mock Upgrade locally for now, in real app this would be a webhook from Stripe updating the DB
+      // Mock Upgrade locally for now
       const { error } = await supabase.auth.updateUser({
           data: { plan: 'pro' }
       });
       
       if (!error) {
           setUser({ ...user, plan: 'pro' });
+          await supabase.from('profiles').update({ plan: 'pro' }).eq('id', user.id);
           alert("Parabéns! Você agora é PRO e tem gerações ilimitadas.");
       }
   };
@@ -166,14 +284,12 @@ const App: React.FC = () => {
       return history.length < 3;
   };
 
-  // Initial entry point from InputArea
   const handleGenerateRequest = (promptText: string, file?: File) => {
       if (!user) {
           setPendingGeneration({ prompt: promptText, file });
           setIsAuthOpen(true);
           return;
       }
-
       handleGenerateAuthenticated(promptText, file);
   };
 
@@ -191,7 +307,6 @@ const App: React.FC = () => {
       let imageBase64: string | undefined;
       let mimeType: string | undefined;
 
-      // Helper to convert file to base64
       const fileToBase64 = (f: File): Promise<string> => {
         return new Promise((resolve, reject) => {
           const reader = new FileReader();
@@ -216,7 +331,6 @@ const App: React.FC = () => {
       if (html && user) {
         const originalImageUri = imageBase64 && mimeType ? `data:${mimeType};base64,${imageBase64}` : undefined;
         
-        // Save to Supabase
         const { data, error } = await supabase
             .from('creations')
             .insert([
@@ -291,14 +405,12 @@ const App: React.FC = () => {
         try {
             const json = event.target?.result as string;
             const parsed = JSON.parse(json);
-            // Import local view only, don't save to DB unless user wants (complex logic omitted for brevity)
             if (parsed.html && parsed.name) {
                 const importedCreation: Creation = {
                     ...parsed,
                     timestamp: new Date(parsed.timestamp || Date.now()),
                     id: parsed.id || crypto.randomUUID()
                 };
-                // We add to history state locally for viewing
                 setHistory(prev => [importedCreation, ...prev]);
                 setActiveCreation(importedCreation);
             } else {
@@ -328,12 +440,21 @@ const App: React.FC = () => {
         {/* Header Nav (Only show if not focused on creation) */}
         {!isFocused && (
              <div className="w-full max-w-7xl mx-auto px-6 pt-6 flex justify-between items-center z-20 relative">
-                <div className="text-xl font-bold text-zinc-900 cursor-pointer" onClick={() => setView('home')}>
+                <div className="text-xl font-bold text-zinc-900 cursor-pointer flex items-center gap-2" onClick={() => setView('home')}>
                     Ainlo
                 </div>
                 <div className="flex gap-3">
                     {user ? (
                         <div className="flex items-center gap-3">
+                             {user.email === ADMIN_EMAIL && (
+                                 <button
+                                    onClick={() => setView('admin')}
+                                    className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors font-medium text-sm ${view === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-white/50 hover:bg-purple-50 text-zinc-700'}`}
+                                 >
+                                     <ShieldCheckIcon className="w-5 h-5" />
+                                     Admin
+                                 </button>
+                             )}
                              <button 
                                 onClick={() => setView(view === 'dashboard' ? 'home' : 'dashboard')}
                                 className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors font-medium text-sm ${view === 'dashboard' ? 'bg-blue-100 text-blue-700' : 'bg-white/50 hover:bg-white text-zinc-700'}`}
@@ -373,8 +494,11 @@ const App: React.FC = () => {
             }
             `}
         >
-            {view === 'dashboard' && user ? (
-                 /* --- DASHBOARD VIEW --- */
+            {view === 'admin' && user?.email === ADMIN_EMAIL ? (
+                <div className="flex-1 w-full py-8">
+                    <AdminDashboard onBack={() => setView('home')} />
+                </div>
+            ) : view === 'dashboard' && user ? (
                  <div className="flex-1 w-full py-8">
                      <UserDashboard 
                         user={user} 
@@ -386,7 +510,6 @@ const App: React.FC = () => {
                      />
                  </div>
             ) : (
-                /* --- HOME / LANDING VIEW --- */
                 <>
                     <div className="flex-1 flex flex-col justify-center items-center w-full py-12 md:py-20">
                         <div className="w-full mb-8 md:mb-16">
@@ -398,7 +521,6 @@ const App: React.FC = () => {
                     </div>
                     
                     <div className="flex-shrink-0 pb-6 w-full mt-auto flex flex-col items-center gap-8">
-                        {/* Show recent history on home only if logged out or just a few items */}
                         {!user && history.length > 0 && (
                              <div className="w-full px-2 md:px-0">
                                 <CreationHistory history={history} onSelect={handleSelectCreation} onDelete={handleDeleteCreation} />

@@ -77,16 +77,39 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ user, history, onS
         </div>
       </div>
 
+      {/* Upgrade Banner (Only for Free users) */}
+      {!isPro && (
+          <div 
+            onClick={onUpgrade}
+            className="cursor-pointer relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 p-6 shadow-lg text-white group"
+          >
+              <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
+              <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+              
+              <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-start gap-4">
+                      <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl">
+                          <SparklesIcon className="w-8 h-8 text-yellow-300" />
+                      </div>
+                      <div>
+                          <h3 className="text-xl font-bold mb-1">Desbloqueie o Potencial Ilimitado</h3>
+                          <p className="text-blue-100 text-sm max-w-md">
+                              Gere projetos sem limites, exporte códigos complexos e remova todas as restrições do plano gratuito.
+                          </p>
+                      </div>
+                  </div>
+                  <button className="bg-white text-blue-600 px-6 py-3 rounded-lg font-bold shadow-lg hover:bg-blue-50 transition-all flex items-center gap-2 whitespace-nowrap">
+                      Fazer Upgrade Agora
+                      <ArrowRightIcon className="w-4 h-4" />
+                  </button>
+              </div>
+          </div>
+      )}
+
       {/* Projects Grid */}
       <div>
         <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold text-zinc-900">Meus Projetos</h2>
-            {!isPro && (
-                <button onClick={onUpgrade} className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1 hover:underline">
-                    <SparklesIcon className="w-4 h-4" />
-                    Fazer Upgrade para Ilimitado
-                </button>
-            )}
         </div>
 
         {history.length === 0 ? (

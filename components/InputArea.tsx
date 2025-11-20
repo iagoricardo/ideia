@@ -1,9 +1,11 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
 import React, { useCallback, useState, useEffect } from 'react';
-import { ArrowUpTrayIcon, SparklesIcon, CpuChipIcon } from '@heroicons/react/24/outline';
+import { ArrowUpTrayIcon, CpuChipIcon, DocumentIcon, PhotoIcon } from '@heroicons/react/24/outline';
+import { CloudArrowUpIcon } from '@heroicons/react/24/solid';
 
 interface InputAreaProps {
   onGenerate: (prompt: string, file?: File) => void;
@@ -35,7 +37,7 @@ const CyclingText = () => {
     }, [words.length]);
 
     return (
-        <span className={`inline-block whitespace-nowrap transition-all duration-500 transform ${fade ? 'opacity-100 translate-y-0 blur-0' : 'opacity-0 translate-y-2 blur-sm'} text-zinc-900 font-medium pb-1 border-b-2 border-blue-500/50`}>
+        <span className={`inline-block whitespace-nowrap transition-all duration-500 transform ${fade ? 'opacity-100 translate-y-0 blur-0' : 'opacity-0 translate-y-2 blur-sm'} text-blue-600 font-bold pb-1 border-b-2 border-blue-200`}>
             {words[index]}
         </span>
     );
@@ -58,7 +60,7 @@ export const InputArea: React.FC<InputAreaProps> = ({ onGenerate, isGenerating, 
     }
   };
 
-  const handleDrop = useCallback((e: React.DragEvent<HTMLLabelElement>) => {
+  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(false);
     if (disabled || isGenerating) return;
@@ -67,76 +69,103 @@ export const InputArea: React.FC<InputAreaProps> = ({ onGenerate, isGenerating, 
     }
   }, [disabled, isGenerating]);
 
-  const handleDragOver = useCallback((e: React.DragEvent<HTMLLabelElement>) => {
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     if (!disabled && !isGenerating) {
         setIsDragging(true);
     }
   }, [disabled, isGenerating]);
 
-  const handleDragLeave = useCallback((e: React.DragEvent<HTMLLabelElement>) => {
+  const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(false);
   }, []);
 
   return (
-    <div className="w-full max-w-4xl mx-auto perspective-1000">
+    <div className="w-full max-w-3xl mx-auto perspective-1000 relative z-20">
+      {/* Glow Effect Behind */}
+      <div className={`absolute -inset-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-3xl blur opacity-25 transition duration-1000 group-hover:opacity-100 ${isDragging ? 'opacity-75 duration-200' : ''}`}></div>
+      
       <div 
-        className={`relative group transition-all duration-300 ${isDragging ? 'scale-[1.01]' : ''}`}
+        className={`relative group transition-all duration-300 ${isDragging ? 'scale-[1.02]' : 'hover:scale-[1.01]'}`}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
       >
         <label
           className={`
             relative flex flex-col items-center justify-center
-            h-56 sm:h-64 md:h-[22rem]
-            bg-white/40
-            backdrop-blur-sm
-            rounded-xl border border-dashed
+            h-64 sm:h-72 md:h-[24rem]
+            bg-white
+            rounded-2xl shadow-2xl
             cursor-pointer overflow-hidden
+            border-4 border-transparent
             transition-all duration-300
-            ${isDragging 
-              ? 'border-blue-500 bg-white/60 shadow-[inset_0_0_20px_rgba(59,130,246,0.1)]' 
-              : 'border-zinc-300 hover:border-zinc-400 hover:bg-white/50'
-            }
-            ${isGenerating ? 'pointer-events-none' : ''}
+            ${isGenerating ? 'pointer-events-none opacity-90' : ''}
           `}
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
         >
-            {/* Technical Grid Background */}
-            <div className="absolute inset-0 opacity-[0.05] pointer-events-none" 
-                 style={{backgroundImage: 'linear-gradient(#000000 1px, transparent 1px), linear-gradient(90deg, #000000 1px, transparent 1px)', backgroundSize: '32px 32px'}}>
-            </div>
-            
-            {/* Corner Brackets for technical feel */}
-            <div className={`absolute top-4 left-4 w-4 h-4 border-l-2 border-t-2 transition-colors duration-300 ${isDragging ? 'border-blue-500' : 'border-zinc-300'}`}></div>
-            <div className={`absolute top-4 right-4 w-4 h-4 border-r-2 border-t-2 transition-colors duration-300 ${isDragging ? 'border-blue-500' : 'border-zinc-300'}`}></div>
-            <div className={`absolute bottom-4 left-4 w-4 h-4 border-l-2 border-b-2 transition-colors duration-300 ${isDragging ? 'border-blue-500' : 'border-zinc-300'}`}></div>
-            <div className={`absolute bottom-4 right-4 w-4 h-4 border-r-2 border-b-2 transition-colors duration-300 ${isDragging ? 'border-blue-500' : 'border-zinc-300'}`}></div>
-
-            <div className="relative z-10 flex flex-col items-center text-center space-y-6 md:space-y-8 p-6 md:p-8 w-full">
-                <div className={`relative w-16 h-16 md:w-20 md:h-20 rounded-2xl flex items-center justify-center transition-transform duration-500 ${isDragging ? 'scale-110' : 'group-hover:-translate-y-1'}`}>
-                    <div className={`absolute inset-0 rounded-2xl bg-white border border-zinc-200 shadow-xl flex items-center justify-center ${isGenerating ? 'animate-pulse' : ''}`}>
-                        {isGenerating ? (
-                            <CpuChipIcon className="w-8 h-8 md:w-10 md:h-10 text-blue-500 animate-spin-slow" />
-                        ) : (
-                            <ArrowUpTrayIcon className={`w-8 h-8 md:w-10 md:h-10 text-zinc-400 transition-all duration-300 ${isDragging ? '-translate-y-1 text-blue-500' : ''}`} />
-                        )}
-                    </div>
+            {/* Inner Dashed Border Container */}
+            <div className={`
+                absolute inset-3 md:inset-4 
+                border-2 border-dashed rounded-xl 
+                flex flex-col items-center justify-center
+                transition-all duration-300
+                ${isDragging 
+                    ? 'border-blue-500 bg-blue-50/50' 
+                    : 'border-zinc-200 group-hover:border-blue-300 group-hover:bg-zinc-50/30'
+                }
+            `}>
+                
+                {/* Animated Background Grid inside the card */}
+                <div className="absolute inset-0 opacity-[0.4] pointer-events-none" 
+                     style={{backgroundImage: 'radial-gradient(#cbd5e1 1px, transparent 1px)', backgroundSize: '20px 20px'}}>
                 </div>
 
-                <div className="space-y-2 md:space-y-4 w-full max-w-3xl">
-                    <h3 className="flex flex-col items-center justify-center text-xl sm:text-2xl md:text-4xl text-zinc-900 leading-none font-bold tracking-tighter gap-3">
-                        <span>Dê vida a</span>
-                        {/* Fixed height container to prevent layout shifts */}
-                        <div className="h-8 sm:h-10 md:h-14 flex items-center justify-center w-full">
-                           <CyclingText />
+                {/* Main Content */}
+                <div className="relative z-10 flex flex-col items-center text-center space-y-6 p-6 w-full">
+                    
+                    {/* Icon Circle */}
+                    <div className={`
+                        relative w-20 h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center 
+                        transition-all duration-500 shadow-lg
+                        ${isDragging ? 'bg-blue-100 scale-110' : 'bg-white group-hover:-translate-y-2'}
+                    `}>
+                         {/* Pulse Ring */}
+                        <div className={`absolute inset-0 rounded-full border border-blue-100 ${!isGenerating && !isDragging ? 'animate-ping opacity-20' : ''}`}></div>
+                        
+                        {isGenerating ? (
+                            <CpuChipIcon className="w-10 h-10 md:w-12 md:h-12 text-purple-600 animate-spin-slow" />
+                        ) : (
+                            <CloudArrowUpIcon className={`w-10 h-10 md:w-12 md:h-12 transition-colors duration-300 ${isDragging ? 'text-blue-600' : 'text-blue-500 group-hover:text-purple-500'}`} />
+                        )}
+                    </div>
+
+                    <div className="space-y-3 w-full max-w-xl">
+                        <h3 className="text-2xl sm:text-3xl md:text-4xl text-zinc-900 font-bold tracking-tight">
+                            <span className="block text-zinc-400 text-lg md:text-xl font-medium mb-1">Dê vida a</span>
+                            {/* Fixed height container */}
+                            <div className="h-8 sm:h-10 md:h-12 flex items-center justify-center w-full">
+                               <CyclingText />
+                            </div>
+                        </h3>
+                        
+                        <p className="text-zinc-500 text-sm sm:text-base font-medium px-4">
+                            Arraste arquivos ou clique para fazer upload
+                        </p>
+
+                        {/* File Type Badges */}
+                        <div className="flex flex-wrap justify-center gap-2 mt-4">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-zinc-100 text-xs font-semibold text-zinc-600 border border-zinc-200">
+                                <DocumentIcon className="w-3.5 h-3.5" /> PDF
+                            </span>
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-zinc-100 text-xs font-semibold text-zinc-600 border border-zinc-200">
+                                <PhotoIcon className="w-3.5 h-3.5" /> PNG
+                            </span>
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-zinc-100 text-xs font-semibold text-zinc-600 border border-zinc-200">
+                                <PhotoIcon className="w-3.5 h-3.5" /> JPG
+                            </span>
                         </div>
-                    </h3>
-                    <p className="text-zinc-500 text-xs sm:text-base md:text-lg font-light tracking-wide">
-                        <span className="hidden md:inline">Arraste e solte</span>
-                        <span className="md:hidden">Toque</span> para enviar qualquer arquivo
-                    </p>
+                    </div>
                 </div>
             </div>
 
