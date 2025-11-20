@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -7,6 +8,7 @@ import { Hero } from './components/Hero';
 import { InputArea } from './components/InputArea';
 import { LivePreview } from './components/LivePreview';
 import { CreationHistory, Creation } from './components/CreationHistory';
+import { FeaturesSection } from './components/Features';
 import { bringToLife } from './services/gemini';
 import { ArrowUpTrayIcon } from '@heroicons/react/24/solid';
 import { Vortex } from './components/Vortex';
@@ -240,17 +242,24 @@ const App: React.FC = () => {
 
             </div>
             
-            {/* 3. History Section & Footer - Stays at bottom */}
-            <div className="flex-shrink-0 pb-6 w-full mt-auto flex flex-col items-center gap-6">
+            {/* 3. History & Features Section - Stays at bottom */}
+            <div className="flex-shrink-0 pb-6 w-full mt-auto flex flex-col items-center gap-8">
+                {/* History List */}
                 <div className="w-full px-2 md:px-0">
                     <CreationHistory history={history} onSelect={handleSelectCreation} onDelete={handleDeleteCreation} />
                 </div>
                 
+                {/* New Features Grid */}
+                <div className="w-full">
+                    <FeaturesSection />
+                </div>
+
+                {/* Footer Branding */}
                 <a 
                 href="https://www.instagram.com/iagoricardo.br" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-zinc-500 hover:text-zinc-800 text-xs font-mono transition-colors pb-2"
+                className="text-zinc-500 hover:text-zinc-800 text-xs font-mono transition-colors pb-4"
                 >
                 Criado por @iagoricardo.br
                 </a>
