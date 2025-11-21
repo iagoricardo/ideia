@@ -539,12 +539,12 @@ const App: React.FC = () => {
                             <PricingWithChart />
                         </div>
                         <a 
-                        href="https://www.instagram.com/iagoricardo.br" 
+                        href="https://www.ainotes.online/" 
                         target="_blank" 
                         rel="noopener noreferrer"
                         className="text-zinc-500 hover:text-zinc-800 text-xs font-mono transition-colors pb-4"
                         >
-                        Criado por @iagoricardo.br
+                        Criado por AiNotes.online
                         </a>
                     </div>
                 </>

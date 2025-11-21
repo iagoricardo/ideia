@@ -1,8 +1,6 @@
-
 import React from 'react';
 import { CheckCircleIcon, RocketLaunchIcon } from '@heroicons/react/24/solid';
-import { CartesianGrid, Bar, BarChart, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { cn } from '../lib/utils';
+import { motion } from 'framer-motion';
 
 // --- CONFIGURAÇÃO DO STRIPE ---
 const STRIPE_CONFIG = {
@@ -45,7 +43,7 @@ export function PricingWithChart() {
                 Gratuito
               </h2>
               <span className="my-3 block text-4xl font-bold text-zinc-900">
-                R$ 0
+                R$ 0,00
               </span>
               <p className="text-sm text-zinc-500">
                 Ideal para testar e conhecer a plataforma
@@ -92,9 +90,24 @@ export function PricingWithChart() {
                 Perfeito para profissionais, professores, advogados, estudantes, designer, startups e criadores de conteúdo.
               </p>
             </div>
-            <div className="h-48 w-full rounded-lg border border-zinc-100 bg-white p-2 shadow-inner relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-full blur-3xl -mr-10 -mt-10 opacity-50 pointer-events-none"></div>
-              <InterestChart />
+            
+            {/* New Chart Component Matching Screenshot Style */}
+            <div className="bg-white border border-zinc-200 rounded-xl p-4 shadow-sm">
+                <div className="mb-4">
+                    <h3 className="font-bold text-zinc-900 text-sm">Produtividade</h3>
+                    <p className="text-xs text-zinc-500">Crescimento de usuários</p>
+                </div>
+                <div className="h-32 w-full relative">
+                    <LineChart />
+                </div>
+                <div className="flex justify-between text-[10px] text-zinc-400 mt-2 px-2 font-medium">
+                    <span>Fev</span>
+                    <span>Abr</span>
+                    <span>Jun</span>
+                    <span>Ago</span>
+                    <span>Out</span>
+                    <span>Dez</span>
+                </div>
             </div>
           </div>
           
@@ -144,61 +157,56 @@ export function PricingWithChart() {
   );
 }
 
-function InterestChart() {
-  const chartData = [
-    { month: 'Jan', interest: 120 },
-    { month: 'Fev', interest: 180 },
-    { month: 'Mar', interest: 250 },
-    { month: 'Abr', interest: 210 },
-    { month: 'Mai', interest: 280 },
-    { month: 'Jun', interest: 320 },
-    { month: 'Jul', interest: 350 },
-    { month: 'Ago', interest: 380 },
-    { month: 'Set', interest: 420 },
-    { month: 'Out', interest: 460 },
-    { month: 'Nov', interest: 510 }, 
-    { month: 'Dez', interest: 600 }, 
+// Clean Line Chart SVG Component
+function LineChart() {
+  // Smooth curve data points
+  const points = [
+      [0, 80], [20, 75], [40, 78], [60, 65], [80, 55], [100, 50], 
+      [120, 45], [140, 40], [160, 35], [180, 20], [200, 10]
   ];
+  
+  // Normalize points to SVG path string
+  // M x y Q cx cy x y (Quadratic Bezier for smoothness)
+  const pathD = `
+    M ${points[0][0]} ${points[0][1]} 
+    C 30 80, 50 60, 70 65
+    S 120 50, 140 45
+    S 180 30, 200 10
+  `;
 
   return (
-    <div className="flex flex-col h-full w-full relative z-10">
-        <div className="mb-2 px-2 flex items-center justify-between">
-            <div>
-                <h3 className="text-xs font-bold text-zinc-900 flex items-center gap-1.5">
-                    <RocketLaunchIcon className="w-3.5 h-3.5 text-blue-600" />
-                    Produtividade
-                </h3>
-                <p className="text-[10px] text-zinc-500 font-medium">Crescimento de usuários</p>
-            </div>
-            <div className="flex items-center gap-1 px-1.5 py-0.5 bg-green-50 text-green-700 text-[10px] font-bold rounded-full border border-green-100 shadow-sm">
-                <span>+400%</span>
-            </div>
-        </div>
-        <div className="flex-1 min-h-0">
-            <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} margin={{ left: 0, right: 0, top: 5, bottom: 0 }}>
-                    <CartesianGrid vertical={false} stroke="#e4e4e7" strokeDasharray="4 4" />
-                    <XAxis
-                        dataKey="month"
-                        tickLine={false}
-                        axisLine={false}
-                        tickMargin={8}
-                        tick={{ fontSize: 10, fill: '#71717a' }}
-                        interval={2}
-                    />
-                    <Tooltip 
-                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontSize: '12px' }}
-                        cursor={{ fill: '#f4f4f5' }}
-                    />
-                    <Bar
-                        dataKey="interest"
-                        fill="#3b82f6"
-                        radius={[4, 4, 0, 0]}
-                        animationDuration={1500}
-                    />
-                </BarChart>
-            </ResponsiveContainer>
-        </div>
-    </div>
+    <svg className="w-full h-full overflow-visible" viewBox="0 0 200 100" preserveAspectRatio="none">
+        {/* Background Grid Lines */}
+        <line x1="0" y1="25" x2="200" y2="25" stroke="#f4f4f5" strokeWidth="1" />
+        <line x1="0" y1="50" x2="200" y2="50" stroke="#f4f4f5" strokeWidth="1" />
+        <line x1="0" y1="75" x2="200" y2="75" stroke="#f4f4f5" strokeWidth="1" />
+
+        {/* Animated Path */}
+        <motion.path 
+            d={pathD}
+            fill="none"
+            stroke="#f59e0b" // Amber-500/Yellowish Orange like screenshot
+            strokeWidth="3"
+            strokeLinecap="round"
+            initial={{ pathLength: 0, opacity: 0 }}
+            whileInView={{ pathLength: 1, opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 2, ease: "easeInOut" }}
+        />
+        
+        {/* End Dot */}
+        <motion.circle 
+            cx="200" 
+            cy="10" 
+            r="4" 
+            fill="#f59e0b" 
+            stroke="white" 
+            strokeWidth="2"
+            initial={{ scale: 0 }}
+            whileInView={{ scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ delay: 2, duration: 0.3 }}
+        />
+    </svg>
   );
 }
