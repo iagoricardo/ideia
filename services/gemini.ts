@@ -133,6 +133,15 @@ Sempre gere a melhor interpretação possível.
 
 Toda interface deve ser em Português do Brasil (pt-BR).
 
+7. Branding Obrigatório (Marca D'água) - INCLUIR SEMPRE
+
+Você DEVE inserir, logo antes do fechamento da tag </body>, o seguinte código HTML exato para exibir a marca da plataforma (estilo "Made with Ainlo"). Não altere o CSS ou HTML deste bloco:
+
+<a href="https://ainlo.advoga.shop" target="_blank" style="position: fixed; bottom: 12px; right: 12px; z-index: 9999; display: flex; align-items: center; gap: 8px; background-color: rgba(255, 255, 255, 0.95); padding: 8px 12px; border-radius: 24px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-decoration: none; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; color: #18181b; border: 1px solid rgba(0,0,0,0.08); transition: all 0.2s ease; backdrop-filter: blur(4px);" onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 6px 20px rgba(0,0,0,0.15)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 4px 15px rgba(0,0,0,0.1)'">
+  <img src="https://i.ibb.co/LhdJ5Qwc/Image-fx-2-Photoroom.png" alt="Ainlo Logo" style="width: 24px; height: 24px; object-fit: contain;">
+  <span style="font-weight: 600; letter-spacing: -0.01em;">Feito com <span style="background: linear-gradient(to right, #2563eb, #9333ea); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Ainlo</span></span>
+</a>
+
 FORMATO FINAL DA RESPOSTA (OBRIGATÓRIO)
 
 Você DEVE retornar somente:
@@ -149,13 +158,26 @@ E o arquivo deve começar com:
 
 <!DOCTYPE html>
 
+
 Nada antes disso.`;
 
 export async function bringToLife(prompt: string, fileBase64?: string, mimeType?: string): Promise<string> {
   // Tenta obter a chave de várias fontes para flexibilidade
-  // 1. process.env (Node/Webpack/Vercel)
+  let apiKey = '';
+  
+  // 1. process.env (Node/Webpack/Vercel) - Safe access check
+  try {
+    if (typeof process !== 'undefined' && process.env) {
+        apiKey = process.env.API_KEY || '';
+    }
+  } catch (e) {
+    // Ignore reference error if process is not defined
+  }
+
   // 2. import.meta.env (Vite padrão)
-  const apiKey = process.env.API_KEY || (import.meta as any).env?.VITE_API_KEY;
+  if (!apiKey && (import.meta as any).env) {
+      apiKey = (import.meta as any).env.VITE_API_KEY;
+  }
 
   if (!apiKey) {
     console.error("API Key não encontrada. Configure API_KEY no .env ou variáveis de ambiente.");
@@ -168,7 +190,7 @@ export async function bringToLife(prompt: string, fileBase64?: string, mimeType?
   
   // Diretiva forte para entradas apenas de arquivo com ênfase em SEM imagens externas e idioma Português
   const finalPrompt = fileBase64 
-    ? "Analise esta imagem/documento. Detecte qual funcionalidade está implícita. Se for um objeto do mundo real (como uma mesa), gamifique-o (por exemplo, um jogo de limpeza). Construa um aplicativo web totalmente interativo. IMPORTANTE: NÃO use URLs de imagens externas. Recrie os visuais usando CSS, SVGs ou Emojis. Garanta que todo o texto no aplicativo gerado esteja em Português do Brasil. Retorne APENAS o código HTML limpo, sem formatação markdown." 
+    ? "Analise esta imagem/documento. Detecte qual funcionalidade está implícita. Se for um objeto do mundo real (como uma mesa), gamifique-o (por exemplo, um jogo de limpeza). Construa um aplicativo web totalmente interativo. IMPORTANTE: NÃO use URLs de imagens externas. Recrie os visuais usando CSS, SVGs ou Emojis. Garanta que todo o texto no aplicativo gerado esteja em Português do Brasil. INCLUA a marca d'água 'Feito com Ainlo' conforme instrução do sistema. Retorne APENAS o código HTML limpo, sem formatação markdown." 
     : prompt || "Crie um aplicativo de demonstração que mostre suas capacidades (em português). Retorne APENAS o código HTML limpo.";
 
   parts.push({ text: finalPrompt });

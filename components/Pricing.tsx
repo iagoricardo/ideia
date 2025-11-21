@@ -89,7 +89,7 @@ export function PricingWithChart() {
                   <span className="text-zinc-400 font-medium">/mês</span>
               </div>
               <p className="text-sm text-zinc-500">
-                Perfeito para profissionais, startups e criadores de conteúdo.
+                Perfeito para profissionais, professores, advogados, estudantes, designer, startups e criadores de conteúdo.
               </p>
             </div>
             <div className="h-48 w-full rounded-lg border border-zinc-100 bg-white p-2 shadow-inner relative overflow-hidden">
