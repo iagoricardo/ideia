@@ -149,7 +149,6 @@ E o arquivo deve começar com:
 
 <!DOCTYPE html>
 
-
 Nada antes disso.`;
 
 export async function bringToLife(prompt: string, fileBase64?: string, mimeType?: string): Promise<string> {

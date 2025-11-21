@@ -5,26 +5,20 @@ import { CartesianGrid, Bar, BarChart, XAxis, Tooltip, ResponsiveContainer } fro
 import { cn } from '../lib/utils';
 
 // --- CONFIGURAÇÃO DO STRIPE ---
-// Substitua estas URLs pelos seus links de pagamento reais do Stripe (Criar em Stripe Dashboard -> Payment Links)
-// Ou configure sua chave pública se for implementar checkout via API
 const STRIPE_CONFIG = {
-  paymentLinkMonthly: "https://buy.stripe.com/SEU_LINK_MENSAL_AQUI", // Ex: https://buy.stripe.com/test_...
-  paymentLinkYearly: "https://buy.stripe.com/SEU_LINK_ANUAL_AQUI",
+  // Link fornecido pelo usuário
+  paymentLinkMonthly: "https://buy.stripe.com/3cI9AV65EeNea3B2EkaAw00", 
 };
 
 export function PricingWithChart() {
   
   const handleCheckout = (plan: 'free' | 'pro') => {
       if (plan === 'free') {
-          // Lógica para plano gratuito (ex: rolar para login ou cadastro)
+          // Lógica para plano gratuito (rola para o topo para login/cadastro)
           window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
-          // Redirecionar para Stripe
-          if (STRIPE_CONFIG.paymentLinkMonthly.includes("SEU_LINK")) {
-              alert("Configuração necessária: Adicione seu Link de Pagamento do Stripe no arquivo Pricing.tsx");
-          } else {
-              window.open(STRIPE_CONFIG.paymentLinkMonthly, '_blank');
-          }
+          // Redirecionar para Stripe Payment Link
+          window.open(STRIPE_CONFIG.paymentLinkMonthly, '_blank');
       }
   };
 

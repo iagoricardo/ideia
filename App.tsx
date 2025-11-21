@@ -24,10 +24,13 @@ interface User {
   name: string;
   email: string;
   plan: 'free' | 'pro';
+  proExpiresAt?: string | null; // New field for expiration
 }
 
 // Email do Admin (Hardcoded para segurança no frontend, idealmente usar Roles no DB)
 const ADMIN_EMAIL = 'admin@ainlo.com';
+// Link de Pagamento Stripe
+const STRIPE_LINK = "https://buy.stripe.com/3cI9AV65EeNea3B2EkaAw00";
 
 const App: React.FC = () => {
   const [activeCreation, setActiveCreation] = useState<Creation | null>(null);
@@ -50,7 +53,6 @@ const App: React.FC = () => {
           const isAdmin = sessionUser.email === ADMIN_EMAIL;
           
           // 1. Prepare minimal safe profile data (name/email)
-          // This usually succeeds even with strict RLS for the user's own row
           const baseProfile = {
               id: sessionUser.id,
               email: sessionUser.email,
@@ -60,18 +62,16 @@ const App: React.FC = () => {
           // 2. Attempt basic upsert first
           const { error } = await supabase.from('profiles').upsert(baseProfile, { 
               onConflict: 'id',
-              ignoreDuplicates: false 
+              ignoreDuplicates: true 
           });
 
           if (error) {
                console.warn("Profile basic sync warning:", error.message);
-               // Don't throw, just log. The user can still use the app.
           }
 
           // 3. If Admin, try to enforce role separately
           if (isAdmin) {
-             const { error: roleError } = await supabase.from('profiles').update({ role: 'admin' }).eq('id', sessionUser.id);
-             if (roleError) console.warn("Admin role sync warning:", roleError.message);
+             await supabase.from('profiles').update({ role: 'admin' }).eq('id', sessionUser.id);
           }
 
       } catch (err) {
@@ -85,30 +85,48 @@ const App: React.FC = () => {
         try {
             const { data: { session } } = await supabase.auth.getSession();
             if (session?.user) {
-                // Optimistically set user immediately to unblock UI
-                setUser({
+                // Initial basic user data
+                const userData: User = {
                     id: session.user.id,
                     email: session.user.email!,
                     name: session.user.user_metadata.name || session.user.email!.split('@')[0],
-                    plan: (session.user.user_metadata.plan as 'free' | 'pro') || 'free'
-                });
+                    plan: 'free',
+                    proExpiresAt: null
+                };
+                setUser(userData);
 
-                // Background fetch for Plan details
+                // Background fetch for Plan details and Expiration
                 supabase
                     .from('profiles')
-                    .select('plan, role')
+                    .select('plan, role, pro_expires_at')
                     .eq('id', session.user.id)
                     .single()
                     .then(({ data: profile }) => {
                         if (profile) {
-                            setUser(prev => prev ? {
-                                ...prev,
-                                plan: (profile.plan as 'free' | 'pro') || prev.plan
-                            } : null);
+                            setUser(prev => {
+                                if (!prev) return null;
+                                
+                                // Check expiration logic
+                                let finalPlan = (profile.plan as 'free' | 'pro') || 'free';
+                                const expiresAt = profile.pro_expires_at;
+                                
+                                if (finalPlan === 'pro' && expiresAt) {
+                                    const expirationDate = new Date(expiresAt);
+                                    if (expirationDate < new Date()) {
+                                        // Expired! Revert to free locally (DB update ideally happens via backend/cron)
+                                        finalPlan = 'free';
+                                    }
+                                }
+
+                                return {
+                                    ...prev,
+                                    plan: finalPlan,
+                                    proExpiresAt: expiresAt
+                                };
+                            });
                         }
                     });
                 
-                // Attempt to sync profile background
                 syncUserProfile(session.user);
             }
         } catch (e) {
@@ -118,19 +136,13 @@ const App: React.FC = () => {
     
     checkSession();
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
         if (event === 'SIGNED_OUT' || !session) {
-            // Handle Logout / Session Expiry
             setUser(null);
             setHistory([]);
             setActiveCreation(null);
             setView('home');
         } else if (event === 'SIGNED_IN' || session?.user) {
-            // Handle Login / Token Refresh
-            // Note: We rely on handleAuth for the primary login transition to avoid flickering
-            // This listener ensures we stay in sync if the session updates externally
-            
              if (!user) {
                  setUser({
                     id: session.user.id,
@@ -139,9 +151,6 @@ const App: React.FC = () => {
                     plan: 'free'
                 });
              }
-            
-            // Sync on login event as well
-            syncUserProfile(session.user);
         }
     });
 
@@ -180,7 +189,7 @@ const App: React.FC = () => {
     };
 
     loadUserHistory();
-  }, [user?.id]); // Depend only on ID to avoid loops
+  }, [user?.id]);
 
 
   // --- AUTH ACTIONS ---
@@ -213,26 +222,19 @@ const App: React.FC = () => {
               }
           }
           
-          // CRITICAL: Optimistically set user state immediately
-          // This prevents the "stuck" feeling where view changes but user is null
           if (sessionUser) {
               const userName = name || sessionUser.user_metadata.name || sessionUser.email!.split('@')[0];
               
-              // 1. Set React State
+              // Optimistic Update
               setUser({
                   id: sessionUser.id,
                   email: sessionUser.email!,
                   name: userName,
-                  plan: 'free' // Optimistic default
+                  plan: 'free'
               });
 
-              // 2. Trigger Background Sync (Non-blocking)
-              syncUserProfile(sessionUser);
-              
-              // 3. Close Modal
               setIsAuthOpen(false);
-
-              // 4. Navigate
+              
               if (pendingGeneration) {
                   setTimeout(() => {
                       handleGenerateAuthenticated(pendingGeneration.prompt, pendingGeneration.file);
@@ -241,20 +243,33 @@ const App: React.FC = () => {
               } else {
                   setView('dashboard');
               }
+
+              setTimeout(() => {
+                  syncUserProfile(sessionUser);
+                  // Re-fetch profile to get actual Plan status
+                  supabase
+                    .from('profiles')
+                    .select('plan, pro_expires_at')
+                    .eq('id', sessionUser.id)
+                    .single()
+                    .then(({ data }) => {
+                        if (data) {
+                             setUser(prev => prev ? { ...prev, plan: data.plan, proExpiresAt: data.pro_expires_at } : null);
+                        }
+                    });
+              }, 100);
           }
       } catch (err) {
-          throw err; // Re-throw to be caught by AuthModal
+          throw err;
       }
   };
 
   const handleLogout = async () => {
-      // 1. Reset Local State Immediately for snappy UI
       setUser(null);
       setActiveCreation(null);
       setHistory([]);
       setView('home');
 
-      // 2. Perform API Logout
       try {
           await supabase.auth.signOut();
       } catch (error) {
@@ -262,18 +277,9 @@ const App: React.FC = () => {
       }
   };
 
-  const handleUpgrade = async () => {
+  const handleUpgrade = () => {
       if (!user) return;
-      // Mock Upgrade locally for now
-      const { error } = await supabase.auth.updateUser({
-          data: { plan: 'pro' }
-      });
-      
-      if (!error) {
-          setUser({ ...user, plan: 'pro' });
-          await supabase.from('profiles').update({ plan: 'pro' }).eq('id', user.id);
-          alert("Parabéns! Você agora é PRO e tem gerações ilimitadas.");
-      }
+      window.open(STRIPE_LINK, '_blank');
   };
 
   // --- GENERATION LOGIC ---
@@ -437,11 +443,11 @@ const App: React.FC = () => {
     >
         <div className="h-[100dvh] text-zinc-900 selection:bg-blue-500/20 overflow-y-auto overflow-x-hidden relative flex flex-col">
         
-        {/* Header Nav (Only show if not focused on creation) */}
         {!isFocused && (
              <div className="w-full max-w-7xl mx-auto px-6 pt-6 flex justify-between items-center z-20 relative">
-                <div className="text-xl font-bold text-zinc-900 cursor-pointer flex items-center gap-2" onClick={() => setView('home')}>
-                    Ainlo
+                <div className="text-xl font-bold text-zinc-900 cursor-pointer flex items-center gap-3" onClick={() => setView('home')}>
+                    <img src="https://i.ibb.co/LhdJ5Qwc/Image-fx-2-Photoroom.png" alt="Ainlo Logo" className="h-10 w-auto" />
+                    
                 </div>
                 <div className="flex gap-3">
                     {user ? (
@@ -483,7 +489,6 @@ const App: React.FC = () => {
              </div>
         )}
 
-        {/* Centered Content Container */}
         <div 
             className={`
             min-h-full flex flex-col w-full max-w-7xl mx-auto px-4 sm:px-6 relative z-10 
@@ -546,7 +551,6 @@ const App: React.FC = () => {
             )}
         </div>
 
-        {/* Live Preview */}
         <LivePreview
             creation={activeCreation}
             isLoading={isGenerating}
@@ -554,7 +558,6 @@ const App: React.FC = () => {
             onReset={handleReset}
         />
 
-        {/* Auth Modal */}
         <AuthModal 
             isOpen={isAuthOpen} 
             onClose={() => {
@@ -565,7 +568,6 @@ const App: React.FC = () => {
             pendingAction={pendingGeneration ? 'upload' : undefined}
         />
 
-        {/* Import Button */}
         <div className="fixed bottom-4 right-4 z-50">
             <button 
                 onClick={handleImportClick}

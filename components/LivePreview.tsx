@@ -321,6 +321,19 @@ export const LivePreview: React.FC<LivePreviewProps> = ({ creation, isLoading, i
                     scene="https://prod.spline.design/kZDDjO5HuC9GJUM2/scene.splinecode" 
                     className="w-full h-full scale-110 md:scale-100"
                 />
+                
+                {/* Logo Reposicionado - Canto Superior Direito */}
+                <div className="absolute top-8 right-8 z-30 w-32 sm:w-48 animate-[float_6s_ease-in-out_infinite]">
+                    <div className="relative">
+                        {/* Glow Effect behind logo */}
+                        <div className="absolute inset-0 bg-blue-500/20 blur-2xl rounded-full animate-pulse"></div>
+                        <img 
+                            src="https://i.ibb.co/LhdJ5Qwc/Image-fx-2-Photoroom.png" 
+                            className="relative w-full h-full object-contain drop-shadow-[0_0_15px_rgba(59,130,246,0.4)]"
+                            alt="Platform Logo"
+                        />
+                    </div>
+                </div>
              </div>
              
              {/* Animated Loading Status Overlay */}

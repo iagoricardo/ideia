@@ -9,6 +9,7 @@ interface Profile {
     name: string;
     plan: 'free' | 'pro';
     role: 'user' | 'admin';
+    pro_expires_at?: string;
 }
 
 export const AdminDashboard = ({ onBack }: { onBack: () => void }) => {
@@ -18,7 +19,6 @@ export const AdminDashboard = ({ onBack }: { onBack: () => void }) => {
 
   const fetchUsers = async () => {
     setRefreshing(true);
-    // Note: This assumes 'profiles' table exists and RLS allows reading.
     const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -44,35 +44,55 @@ export const AdminDashboard = ({ onBack }: { onBack: () => void }) => {
   };
 
   const togglePlan = async (id: string, currentPlan: string) => {
-      // Ensure strict checking
-      const normalizedPlan = currentPlan?.toLowerCase() || 'free';
-      const newPlan = normalizedPlan === 'pro' ? 'free' : 'pro';
+      const normalizedPlan = (currentPlan || 'free').toLowerCase();
+      const isCurrentlyPro = normalizedPlan === 'pro';
       
-      // Optimistic update
+      let newPlan = 'free';
+      let expiresAt = null;
+      let message = "";
+
+      if (isCurrentlyPro) {
+          // Remove Pro
+          newPlan = 'free';
+          expiresAt = null; // Remove expiration
+          message = "Plano removido (Free).";
+      } else {
+          // Grant Pro
+          newPlan = 'pro';
+          // Set expiration to 30 days from now
+          const date = new Date();
+          date.setDate(date.getDate() + 30);
+          expiresAt = date.toISOString();
+          message = "Plano PRO concedido por 30 dias.";
+      }
+
+      // Optimistic Update
       setUsers(prevUsers => prevUsers.map(u => u.id === id ? { ...u, plan: newPlan as 'free'|'pro' } : u));
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
-        .update({ plan: newPlan })
-        .eq('id', id);
+        .update({ plan: newPlan, pro_expires_at: expiresAt })
+        .eq('id', id)
+        .select();
         
       if (error) {
           console.error("Failed to update plan:", error);
-          alert("Erro ao atualizar plano. Verifique suas permissões ou a conexão.");
-          // Revert optimistic update
-          setUsers(prevUsers => prevUsers.map(u => u.id === id ? { ...u, plan: normalizedPlan as 'free'|'pro' } : u));
+          alert(`Erro ao atualizar: ${error.message}`);
+          // Revert
+          fetchUsers();
       } else {
-          alert(`Plano atualizado para ${newPlan.toUpperCase()} com sucesso!`);
+          // Ensure data consistency
+          if (data && data.length > 0) {
+             alert(`Sucesso! ${message}`);
+             fetchUsers(); // Refresh to show any date changes if displayed later
+          }
       }
   };
 
   const deleteUser = async (id: string, name: string) => {
-      if (!window.confirm(`Tem certeza que deseja remover o usuário "${name}"? Isso removerá o acesso dele ao painel.`)) {
+      if (!window.confirm(`ATENÇÃO: Tem certeza que deseja excluir o usuário "${name}"?`)) {
           return;
       }
-
-      // Optimistic remove from UI
-      setUsers(prevUsers => prevUsers.filter(u => u.id !== id));
 
       const { error } = await supabase
           .from('profiles')
@@ -80,12 +100,10 @@ export const AdminDashboard = ({ onBack }: { onBack: () => void }) => {
           .eq('id', id);
 
       if (error) {
-          console.error("Error deleting user:", error);
-          alert("Erro ao excluir usuário. Pode haver restrições no banco de dados.");
-          // Reload to restore state if failed
-          fetchUsers();
+          alert(`Erro ao excluir: ${error.message}`);
       } else {
           alert("Usuário excluído com sucesso.");
+          fetchUsers();
       }
   };
 
@@ -104,7 +122,6 @@ export const AdminDashboard = ({ onBack }: { onBack: () => void }) => {
                     onClick={handleRefresh}
                     disabled={refreshing}
                     className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 font-medium px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors disabled:opacity-50"
-                    title="Recarregar lista"
                   >
                       <ArrowPathIcon className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
                       {refreshing ? 'Atualizando...' : 'Atualizar Lista'}
@@ -127,7 +144,6 @@ export const AdminDashboard = ({ onBack }: { onBack: () => void }) => {
               <div className="text-center py-12 bg-zinc-50 rounded-xl border border-dashed border-zinc-200">
                   <UserIcon className="w-12 h-12 mx-auto text-zinc-300 mb-2" />
                   <p className="text-zinc-500">Nenhum usuário encontrado.</p>
-                  <p className="text-xs text-zinc-400 mt-2">Se usuários existem mas não aparecem, clique em "Atualizar Lista".</p>
               </div>
           ) : (
               <div className="overflow-x-auto rounded-xl border border-zinc-200">
@@ -142,15 +158,19 @@ export const AdminDashboard = ({ onBack }: { onBack: () => void }) => {
                       </thead>
                       <tbody className="divide-y divide-zinc-100 bg-white">
                           {users.map((u) => {
-                              const isPro = u.plan?.toLowerCase() === 'pro';
+                              const normalizedPlan = (u.plan || 'free').toLowerCase();
+                              const isPro = normalizedPlan === 'pro';
+                              
                               return (
                                 <tr key={u.id} className="hover:bg-zinc-50/50 transition-colors">
                                     <td className="px-6 py-4 font-medium text-zinc-900 flex items-center gap-3">
                                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-100 to-blue-100 flex items-center justify-center text-purple-700 font-bold text-xs">
                                             {u.name ? u.name.charAt(0).toUpperCase() : '?'}
                                         </div>
-                                        {u.name || 'Sem nome'}
-                                        {u.role === 'admin' && <span className="px-1.5 py-0.5 rounded bg-zinc-800 text-white text-[10px]">ADMIN</span>}
+                                        <div>
+                                            <div>{u.name || 'Sem nome'}</div>
+                                            {u.role === 'admin' && <span className="px-1.5 py-0.5 rounded bg-zinc-800 text-white text-[10px] mt-1 inline-block">ADMIN</span>}
+                                        </div>
                                     </td>
                                     <td className="px-6 py-4 text-zinc-600">{u.email}</td>
                                     <td className="px-6 py-4">
@@ -160,7 +180,7 @@ export const AdminDashboard = ({ onBack }: { onBack: () => void }) => {
                                             : 'bg-zinc-100 text-zinc-600 border border-zinc-200'
                                         }`}>
                                             {isPro && <StarIcon className="w-3 h-3 mr-1 fill-amber-500 text-amber-500" />}
-                                            {u.plan ? u.plan.toUpperCase() : 'FREE'}
+                                            {isPro ? 'PRO (30 Dias)' : 'FREE'}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 text-right">
@@ -168,15 +188,13 @@ export const AdminDashboard = ({ onBack }: { onBack: () => void }) => {
                                             <div className="flex items-center justify-end gap-2">
                                                 <button 
                                                     onClick={() => togglePlan(u.id, u.plan)}
-                                                    className={`text-xs font-semibold px-3 py-1.5 rounded-md transition-colors border flex items-center gap-1 ${
+                                                    className={`text-xs font-semibold px-3 py-1.5 rounded-md transition-colors border flex items-center gap-1 min-w-[120px] justify-center ${
                                                         isPro
                                                         ? 'bg-white text-zinc-500 border-zinc-200 hover:bg-zinc-50 hover:text-zinc-900'
                                                         : 'bg-purple-600 text-white border-purple-600 hover:bg-purple-700 shadow-sm'
                                                     }`}
                                                 >
-                                                    {isPro ? (
-                                                        <>Remover Pro</>
-                                                    ) : (
+                                                    {isPro ? 'Remover Pro' : (
                                                         <>
                                                             <StarIcon className="w-3 h-3" />
                                                             Presentear Pro

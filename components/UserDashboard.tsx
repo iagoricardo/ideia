@@ -1,11 +1,11 @@
 
 import React from 'react';
 import { Creation } from './CreationHistory';
-import { ClockIcon, TrashIcon, ArrowRightIcon, StarIcon, SparklesIcon, CloudIcon, PlusIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline';
+import { ClockIcon, TrashIcon, ArrowRightIcon, StarIcon, SparklesIcon, CloudIcon, PlusIcon, ArrowUpTrayIcon, CalendarIcon, CodeBracketIcon, CubeIcon, HeartIcon, DocumentIcon } from '@heroicons/react/24/outline';
 import { RocketLaunchIcon } from '@heroicons/react/24/solid';
 
 interface UserDashboardProps {
-  user: { name: string; email: string; plan: 'free' | 'pro' };
+  user: { name: string; email: string; plan: 'free' | 'pro'; proExpiresAt?: string | null };
   history: Creation[];
   onSelect: (creation: Creation) => void;
   onDelete: (id: string) => void;
@@ -13,15 +13,84 @@ interface UserDashboardProps {
   onUpgrade: () => void;
 }
 
+const ProjectThumbnail = ({ src, name }: { src?: string, name: string }) => {
+  const [error, setError] = React.useState(false);
+
+  React.useEffect(() => {
+    setError(false);
+  }, [src]);
+
+  // Check for PDF
+  if (src?.startsWith('data:application/pdf')) {
+     return (
+        <div className="w-full h-full flex items-center justify-center bg-red-50">
+            <DocumentIcon className="w-10 h-10 text-red-500" />
+        </div>
+     );
+  }
+
+  const getPlaceholderStyle = (str: string) => {
+      const hash = str.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+      const styles = [
+          { bg: 'bg-blue-50', text: 'text-blue-500', icon: CodeBracketIcon },
+          { bg: 'bg-purple-50', text: 'text-purple-500', icon: SparklesIcon },
+          { bg: 'bg-pink-50', text: 'text-pink-500', icon: HeartIcon },
+          { bg: 'bg-emerald-50', text: 'text-emerald-500', icon: CubeIcon },
+          { bg: 'bg-amber-50', text: 'text-amber-500', icon: StarIcon },
+      ];
+      return styles[hash % styles.length];
+  };
+
+  const style = getPlaceholderStyle(name);
+  const Icon = style.icon;
+
+  if (!src || error) {
+      return (
+          <div className={`w-full h-full flex items-center justify-center ${style.bg}`}>
+              <Icon className={`w-10 h-10 ${style.text}`} />
+          </div>
+      );
+  }
+
+  return (
+      <img 
+          src={src} 
+          className="max-w-full max-h-full object-contain shadow-sm" 
+          alt={name} 
+          onError={() => setError(true)}
+      />
+  );
+};
+
 export const UserDashboard: React.FC<UserDashboardProps> = ({ user, history, onSelect, onDelete, onNew, onUpgrade }) => {
   const isPro = user.plan === 'pro';
   const limit = isPro ? Infinity : 3;
   const used = history.length;
-  const percentage = Math.min(100, (used / limit) * 100);
+  const percentage = Math.min(100, (used / (isPro ? 100 : limit)) * 100); // Scale Pro visually to 100 for bar, but it is unlimited
+
+  // Calculate days remaining
+  let daysRemaining = 0;
+  if (isPro && user.proExpiresAt) {
+      const now = new Date();
+      const expires = new Date(user.proExpiresAt);
+      const diffTime = Math.abs(expires.getTime() - now.getTime());
+      daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  }
 
   return (
     <div className="w-full max-w-7xl mx-auto px-4 py-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       
+      {/* Pro Expiration Banner */}
+      {isPro && user.proExpiresAt && (
+          <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-xl flex items-center gap-3 shadow-sm">
+              <CalendarIcon className="w-5 h-5 text-amber-600" />
+              <div>
+                  <span className="font-bold">Seu Plano Pro está ativo!</span>
+                  <span className="text-sm ml-1 opacity-90">Você tem {daysRemaining} dias restantes de acesso ilimitado.</span>
+              </div>
+          </div>
+      )}
+
       {/* Header Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Profile Card */}
@@ -48,7 +117,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ user, history, onS
             </div>
             <div className="w-full bg-zinc-100 rounded-full h-2.5 overflow-hidden">
                 <div 
-                    className={`h-2.5 rounded-full transition-all duration-1000 ${percentage >= 100 ? 'bg-red-500' : 'bg-blue-500'}`} 
+                    className={`h-2.5 rounded-full transition-all duration-1000 ${percentage >= 100 && !isPro ? 'bg-red-500' : 'bg-blue-500'}`} 
                     style={{ width: `${isPro ? 5 : percentage}%` }}
                 ></div>
             </div>
@@ -69,10 +138,21 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ user, history, onS
             </div>
             <button 
                 onClick={onNew}
-                className="mt-4 w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white py-2 rounded-lg transition-all flex items-center justify-center gap-2 font-medium backdrop-blur-sm"
+                disabled={!isPro && used >= limit}
+                className={`mt-4 w-full border py-2 rounded-lg transition-all flex items-center justify-center gap-2 font-medium backdrop-blur-sm ${
+                    !isPro && used >= limit 
+                    ? 'bg-zinc-700/50 border-zinc-600 text-zinc-400 cursor-not-allowed' 
+                    : 'bg-white/10 hover:bg-white/20 border-white/20 text-white'
+                }`}
             >
-                <PlusIcon className="w-4 h-4" />
-                Nova Geração
+                {(!isPro && used >= limit) ? (
+                    <span>Limite Atingido</span>
+                ) : (
+                    <>
+                        <PlusIcon className="w-4 h-4" />
+                        Nova Geração
+                    </>
+                )}
             </button>
         </div>
       </div>
@@ -131,15 +211,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ user, history, onS
                     >
                          {/* Preview Area */}
                          <div className="h-32 bg-zinc-100 relative overflow-hidden flex items-center justify-center p-4 border-b border-zinc-100">
-                            {item.originalImage ? (
-                                <img 
-                                    src={item.originalImage} 
-                                    className="max-w-full max-h-full object-contain shadow-sm" 
-                                    alt="Preview" 
-                                />
-                            ) : (
-                                <RocketLaunchIcon className="w-12 h-12 text-zinc-300" />
-                            )}
+                            <ProjectThumbnail src={item.originalImage} name={item.name} />
                             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors" />
                          </div>
 

@@ -65,17 +65,18 @@ export function FeaturesSection() {
   ];
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-4 py-10 sm:px-6 lg:px-8">
-       <div className="text-center mb-10">
-          <h2 className="text-2xl font-bold tracking-tight text-zinc-900 sm:text-3xl">
+    <div className="w-full max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8">
+       <div className="text-center mb-12 relative z-20">
+          <h2 className="text-3xl font-extrabold tracking-tight text-zinc-900 sm:text-4xl">
             Poder Ilimitado
           </h2>
-          <p className="mt-2 text-lg text-zinc-600">
+          <p className="mt-4 text-lg text-zinc-600 max-w-2xl mx-auto">
             Tudo o que você precisa para transformar ideias em realidade.
           </p>
        </div>
        
-       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 relative z-10 border-l border-t border-zinc-200 bg-white/50 backdrop-blur-xl rounded-2xl overflow-hidden shadow-sm">
+       {/* Enhanced Container: Higher opacity (90%) and heavy blur to block background particles */}
+       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 relative z-20 border border-zinc-200 bg-white/90 backdrop-blur-3xl rounded-3xl overflow-hidden shadow-2xl ring-1 ring-zinc-900/5">
           {features.map((feature, index) => (
             <Feature 
               key={feature.title} 
@@ -106,26 +107,26 @@ const Feature: React.FC<FeatureProps> = ({
   return (
     <div
       className={cn(
-        "flex flex-col border-r border-b border-zinc-200 py-8 px-6 relative group/feature transition-all duration-200 hover:bg-white/80",
+        "flex flex-col border-r border-b border-zinc-100 py-8 px-6 relative group/feature transition-all duration-300 bg-transparent hover:bg-white/50",
         (index === 0 || index === 4) && "lg:border-l-0",
-        index < 4 && "lg:border-b border-zinc-200"
+        index < 4 && "lg:border-b border-zinc-100"
       )}
     >
       {/* Gradient Hover Effect */}
-      <div className="opacity-0 group-hover/feature:opacity-100 transition duration-300 absolute inset-0 h-full w-full bg-gradient-to-br from-blue-50/50 to-purple-50/50 pointer-events-none" />
+      <div className="opacity-0 group-hover/feature:opacity-100 transition duration-500 absolute inset-0 h-full w-full bg-gradient-to-br from-blue-50 to-purple-50 pointer-events-none" />
       
-      <div className="mb-4 relative z-10 text-zinc-500 group-hover/feature:text-blue-600 transition-colors duration-300">
+      <div className="mb-6 relative z-10 text-zinc-400 group-hover/feature:text-blue-600 transition-colors duration-300 transform group-hover/feature:scale-110 origin-left">
         {icon}
       </div>
       
-      <div className="text-lg font-bold mb-2 relative z-10 flex items-center">
-        <div className="absolute -left-6 top-1 h-6 w-1 rounded-r-full bg-zinc-200 group-hover/feature:bg-blue-500 group-hover/feature:h-8 transition-all duration-200"></div>
-        <span className="text-zinc-800 transition-transform duration-200 group-hover/feature:translate-x-1">
+      <div className="text-lg font-bold mb-3 relative z-10 flex items-center">
+        <div className="absolute -left-6 top-1.5 h-5 w-1 rounded-r-full bg-zinc-200 group-hover/feature:bg-blue-600 group-hover/feature:h-6 transition-all duration-300"></div>
+        <span className="text-zinc-800 transition-transform duration-300 group-hover/feature:translate-x-1">
           {title}
         </span>
       </div>
       
-      <p className="text-sm text-zinc-500 leading-relaxed relative z-10">
+      <p className="text-sm text-zinc-500 leading-relaxed relative z-10 font-medium">
         {description}
       </p>
     </div>
