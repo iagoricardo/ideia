@@ -10,6 +10,7 @@ import { LivePreview } from './components/LivePreview';
 import { CreationHistory, Creation } from './components/CreationHistory';
 import { FeaturesSection } from './components/Features';
 import { PricingWithChart } from './components/Pricing';
+import { TestimonialsSection } from './components/Testimonials';
 import { bringToLife } from './services/gemini';
 import { supabase } from './services/supabase';
 import { ArrowUpTrayIcon, UserCircleIcon, ArrowLeftOnRectangleIcon, Squares2X2Icon, ShieldCheckIcon } from '@heroicons/react/24/solid';
@@ -537,6 +538,9 @@ const App: React.FC = () => {
                         </div>
                         <div className="w-full">
                             <PricingWithChart />
+                        </div>
+                        <div className="w-full">
+                            <TestimonialsSection />
                         </div>
                         <a 
                         href="https://www.ainotes.online/" 

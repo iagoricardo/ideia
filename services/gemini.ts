@@ -138,7 +138,7 @@ Toda interface deve ser em Português do Brasil (pt-BR).
 Você DEVE inserir, logo antes do fechamento da tag </body>, o seguinte código HTML exato para exibir a marca da plataforma (estilo "Made with Ainlo"). Não altere o CSS ou HTML deste bloco:
 
 <a href="https://ainlo.advoga.shop" target="_blank" style="position: fixed; bottom: 12px; right: 12px; z-index: 9999; display: flex; align-items: center; gap: 8px; background-color: rgba(255, 255, 255, 0.95); padding: 8px 12px; border-radius: 24px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-decoration: none; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; color: #18181b; border: 1px solid rgba(0,0,0,0.08); transition: all 0.2s ease; backdrop-filter: blur(4px);" onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 6px 20px rgba(0,0,0,0.15)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 4px 15px rgba(0,0,0,0.1)'">
-  <img src="" alt="Ainlo Logo" style="width: 24px; height: 24px; object-fit: contain;">
+  <img src="https://i.ibb.co/LhdJ5Qwc/Image-fx-2-Photoroom.png" alt="Ainlo Logo" style="width: 24px; height: 24px; object-fit: contain;">
   <span style="font-weight: 600; letter-spacing: -0.01em;">Feito com <span style="background: linear-gradient(to right, #2563eb, #9333ea); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Ainlo</span></span>
 </a>
 
